@@ -1,4 +1,24 @@
-# License Plate Detection
+# Lectora de patentes chilenas de autos
+## Lectora de matriculas de autos
+
+Trabajo basado en los desarrollos abajo explicados, ataptado a trabajo con patentes chilenas y adecuado para trabajar con camaras ip ONVIF
+
+el ultimo cambio esta en test4_rtsp_alta_calidad donde se agrego el argumento -C para procesar el flujo tal cual usa en mi cas 26% de cpu por lo cual no lo recomiendo mucho
+
+ademas se agrego un manejo de multiproceso para que no sea tan lento aprovechando que los CPU atuales son multi hilo
+
+espero puedan provarlo, en lo personal no use el docker ya que esta en un flujo RTSP pero tambien pueden compilarlo
+
+para evitar usr docker use anaconda que permite montar un entono python 3.8 limpio.
+
+
+espero les ayude, este proyecto fue echo para mejorar la seguridad y registrar todo tipo de vehicúlos.
+
+Pronto nuevas mejoras  ya son las 4:40 de la madrugada asi que buenas noches.
+
+
+
+## License Plate Detection
 
 This project is done as a Final Year Project required to complete a Bachelor's degree in Electronics Engineering. The code is based on Adrian Rosebrock's (@jrosebr1) PyImageSearch post [**OpenCV: Automatic License/Number Plate Recognition (ANPR) with Python**](https://www.pyimagesearch.com/2020/09/21/opencv-automatic-license-number-plate-recognition-anpr-with-python/), edited to be able to detect Malaysian license plates which typically has white texts on black background plate. I recommend reading through his blogpost to get a general idea of how the image processing pipeline works.
 

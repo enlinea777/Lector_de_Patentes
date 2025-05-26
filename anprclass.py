@@ -29,17 +29,18 @@ class SobelANPR:
         try:                                                #in a folder and also the image of the extracted ROI.
             result_dir = ['result_sobel', 'result_canny', 'result_edgeless']    
             image_dir = r'.' + '/{}'.format(result_dir[self.algo-1] + '_{}'.format(self.input_dir))
-            print(image_dir)
+            #print(image_dir)
             os.chdir(image_dir)
         except:
             print("No folder directory found. Creating...")
-            os.mkdir(image_dir)
+           # os.mkdir(image_dir)
+            os.makedirs(image_dir, exist_ok=True)
             os.chdir(image_dir)
             
         if self.save and self.debug != 1:
             cv2.imwrite(name, image)
             
-        os.chdir('..')
+    #    os.chdir('..')
 
     def morphology_operation(self, gray, rectKern):
         if self.morph=='bh':
@@ -131,7 +132,8 @@ class SobelANPR:
                 self.debug_imshow("License Plate", licensePlate, waitKey=True)
                 self.debug_imshow("ROI", roi, waitKey=True)
 
-                self.save_result('roi{}.png'.format(iteration), licensePlate)
+
+#_                self.save_result('roi{}.png'.format(iteration), licensePlate)
                 break
 
         return (roi, lpCnt)
