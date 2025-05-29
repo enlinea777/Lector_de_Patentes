@@ -20,10 +20,14 @@ class SobelANPR:
         self.morph = morph
 
     def debug_imshow(self, title, image, waitKey=False):    #If debug argument (-d) is set to 1, the script will show the whole image processing pipeline
-        if self.debug:                                      #and wait for user input before continuing to the next step.
+        waitKey=False
+        if self.debug:
+            cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+            #cv2.resizeWindow("Stream", 800, 600)                                      #and wait for user input before continuing to the next step.
             cv2.imshow(title, image)
-            if waitKey:
-                cv2.waitKey(0)
+        #if waitKey:
+              #  cv2.waitKey(0)
+            cv2.waitKey(1)
 
     def save_result(self, name, image):                     #This function is used to save the final image which contains the ROI
         try:                                                #in a folder and also the image of the extracted ROI.
@@ -40,19 +44,19 @@ class SobelANPR:
         if self.save and self.debug != 1:
             cv2.imwrite(name, image)
             
-    #    os.chdir('..')
+        os.chdir('..')
 
     def morphology_operation(self, gray, rectKern):
         if self.morph=='bh':
             blackhat = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, rectKern)
-            self.debug_imshow("Blackhat", blackhat, waitKey=True)
+            #self.debug_imshow("Blackhat", blackhat, waitKey=True)
 
             squareKern = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
             light = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, squareKern)
-            self.debug_imshow("Closing operation", light, waitKey=True)
+            #self.debug_imshow("Closing operation", light, waitKey=True)
             light = cv2.threshold(light, 0, 255,
                 cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-            self.debug_imshow("Light Regions", light, waitKey=True)
+            #self.debug_imshow("Light Regions", light, waitKey=True)
 
             return [blackhat, light]
 
@@ -81,18 +85,18 @@ class SobelANPR:
         (minVal, maxVal) = (np.min(gradX), np.max(gradX))
         gradX = 255 * ((gradX - minVal) / (maxVal - minVal))
         gradX = gradX.astype("uint8")
-        self.debug_imshow("Scharr", gradX, waitKey=True)
+        #self.debug_imshow("Scharr", gradX, waitKey=True)
 
         gradX = cv2.GaussianBlur(gradX, (5, 5), 0)
-        self.debug_imshow("Gaussian", gradX, waitKey=True)
+        #self.debug_imshow("Gaussian", gradX, waitKey=True)
         gradX = cv2.morphologyEx(gradX, cv2.MORPH_CLOSE, rectKern)
         thresh = cv2.threshold(gradX, 0, 255,
             cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-        self.debug_imshow("Grad Thresh", thresh, waitKey=True)
+        #self.debug_imshow("Grad Thresh", thresh, waitKey=True)
 
         thresh = cv2.erode(thresh, None, iterations=3)
         thresh = cv2.dilate(thresh, None, iterations=3)
-        self.debug_imshow("Grad Erode/Dilate", thresh, waitKey=True)
+        #self.debug_imshow("Grad Erode/Dilate", thresh, waitKey=True)
 
         thresh = cv2.bitwise_and(thresh, thresh, mask=luminance)
         thresh = cv2.dilate(thresh, None, iterations=2)
@@ -107,11 +111,11 @@ class SobelANPR:
             cv2.drawContours(oriCopy, [c], -1, 255, 2)
             self.debug_imshow("Contours", oriCopy)
 
-        self.debug_imshow("Masked", thresh, waitKey=True)
+        
 
         return cnts
 
-    def locate_license_plate(self, iteration, gray, candidates, clearBorder=False):
+    def locate_license_plate(self, iteration, gray, candidates, clearBorder=False, white_threshold=1):
         lpCnt = None
         roi = None
 
@@ -126,6 +130,20 @@ class SobelANPR:
                 licensePlate = gray[y:y + h, x:x + w]
                 roi = cv2.threshold(licensePlate, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
 
+                # Calcular porcentaje de píxeles blancos
+                total_pixels = roi.shape[0] * roi.shape[1]
+                white_pixels = cv2.countNonZero(roi)
+                white_ratio = white_pixels / total_pixels
+
+                #if self.debug:
+                print(f"[INFO] AR: {ar:.2f}, % Blanco: {white_ratio:.2%}")
+
+                if white_ratio < white_threshold:
+                    #if self.debug:
+                    print("[INFO] ROI descartado por bajo contenido blanco")
+                    continue  # salta a la siguiente región candidata
+
+
                 if clearBorder:
                     roi = clear_border(roi)
 
@@ -133,7 +151,7 @@ class SobelANPR:
                 self.debug_imshow("ROI", roi, waitKey=True)
 
 
-#_                self.save_result('roi{}.png'.format(iteration), licensePlate)
+#                self.save_result('roi{}.png'.format(iteration), licensePlate)
                 break
 
         return (roi, lpCnt)
@@ -148,14 +166,14 @@ class SobelANPR:
         lpText = None
 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        self.debug_imshow("Grayscale", gray, waitKey=True)
+        #self.debug_imshow("Grayscale", gray, waitKey=True)
         candidates = self.locate_license_plate_candidates(gray, image, 5)
         (lp, lpCnt) = self.locate_license_plate(iteration, gray, candidates, clearBorder=clearBorder)
 
         if lp is not None:
             options = self.build_tesseract_options(psm=psm)
             lpText = pytesseract.image_to_string(lp, config=options)
-            self.debug_imshow("License Plate", lp, waitKey=True)
+            self.debug_imshow("License Plate Reconocido", lp, waitKey=True)
 
         return (lpText, lpCnt)
 
@@ -167,17 +185,17 @@ class CannyANPR(SobelANPR):
         luminance = morphology[1]
 
         canny = cv2.Canny(morph, 200, 230) # Originally 400,450; try to experiment with these values.
-        self.debug_imshow("Canny", canny, waitKey=True)
+        #self.debug_imshow("Canny", canny, waitKey=True)
 
         gaussian = cv2.GaussianBlur(canny, (5,5), 0)
         gaussian = cv2.morphologyEx(gaussian, cv2.MORPH_CLOSE, rectKern)
         thresh = cv2.threshold(gaussian, 0, 255, 
             cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-        self.debug_imshow("Grad Thresh", thresh, waitKey=True)
+        #self.debug_imshow("Grad Thresh", thresh, waitKey=True)
         
         thresh = cv2.erode(thresh, None, iterations=3)
         thresh = cv2.dilate(thresh, None, iterations=3)
-        self.debug_imshow("Eroded & Dilated", thresh, waitKey=True)
+        #self.debug_imshow("Eroded & Dilated", thresh, waitKey=True)
 
         thresh = cv2.bitwise_and(thresh, thresh, mask=luminance)
         thresh = cv2.dilate(thresh, None, iterations=2)
@@ -192,7 +210,6 @@ class CannyANPR(SobelANPR):
             cv2.drawContours(oriCopy, [c], -1, 255, 2)
             self.debug_imshow("Contours", oriCopy)
 
-        self.debug_imshow("Masked", thresh, waitKey=True)
 
         return cnts
 

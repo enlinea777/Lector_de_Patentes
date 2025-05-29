@@ -10,7 +10,7 @@ ADD anprclass.py .
 ADD requirements.txt .
 ADD /malaysian /malaysian
 ADD /overseas /overseas
-
+ADD test* .
 RUN pip install -r requirements.txt
 
 ENTRYPOINT ["/bin/sh"]

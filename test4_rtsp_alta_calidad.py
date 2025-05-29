@@ -3,7 +3,7 @@ import cv2
 import imutils
 import argparse
 import os
-from anprclass import SobelANPR
+from anprclass import CannyANPR, EdgelessANPR, SobelANPR
 import logging
 from datetime import datetime
 import keyboard
@@ -21,7 +21,8 @@ from multiprocessing import set_start_method
 set_start_method("spawn", force=True)  
 
 inicio = datetime.now()
-algo=1
+
+
 ultima_patente = None
 
 def patente_valida(texto):
@@ -66,7 +67,31 @@ def frame_worker(queue, anpr, psm, clear_border, debug, save, estado_patente):
         if item is None:
             break  # señal para terminar el proceso
         frame, iteration = item
-        process_frame(frame, iteration, anpr, psm, clear_border, debug, save, estado_patente)
+        try:
+            process_frame(frame, iteration, anpr, psm, clear_border, debug, save, estado_patente)
+            '''except:
+            #linea en donde fallo
+
+            print("Fallo en procesar el frame:", sys.exc_info()[0]) # Imprimir el error 
+            #imprimir toda las data
+            print("Error:", sys.exc_info()[1])
+            print("Traceback:", sys.exc_info()[2])
+            # Imprimir el estado actual del proceso
+            print("Estado actual del proceso:", estado_patente)
+            # Imprimir el frame que falló
+            print("Frame que fallo:", frame)'''
+        except Exception as e:
+            print(f"Error en procesar el frame {iteration}: {e}")
+            # Imprimir toda las data
+            traceback.print_exc()
+            # Imprimir el estado actual del proceso
+            print("Estado actual del proceso:", estado_patente)
+            # Imprimir el frame que falló
+            print("Frame que fallo:", frame)
+            # Detener el proceso si hay un error
+            raise
+            
+
 
 
 def cleanup_text(text):
@@ -108,7 +133,6 @@ def process_frame(frame, iteration, anpr, psm, clear_border, debug, save, estado
     else:
         image=frame    
 
-    process_frame
     image = cv2.bilateralFilter(image, 3, 105, 105)
 
     if debug:
@@ -138,7 +162,7 @@ def process_frame(frame, iteration, anpr, psm, clear_border, debug, save, estado
         #_    anpr.debug_imshow("Resultado ANPR", image, waitKey=True)
 
         if save:
-            anpr.save_result(f"FrameDetectado_{iteration}.jpg", image)
+            anpr.save_result(f"FrameDetectado_LP-{lp_text}_{iteration}.jpg", image)
 
     return image
 
@@ -154,8 +178,19 @@ def main():
     rtsp_url = args.rtsp
     input_dir = "rtsp_live/"
     iteration = 0
+    minAR_=7
+    maxAR_=minAR_*2
 
-    anpr = SobelANPR(args.algorithm, input_dir, args.morphology, debug=bool(args.debug), save=bool(args.save))
+    algo = args.algorithm
+    if algo == 1:
+        anpr = SobelANPR(algo, input_dir, args.morphology, minAR=minAR_, maxAR=maxAR_, debug=bool(args.debug), save=bool(args.save))
+    elif algo == 2:
+        anpr = CannyANPR(algo, input_dir, args.morphology, minAR=minAR_, maxAR=maxAR_, debug=bool(args.debug), save=bool(args.save))
+    elif algo == 3:
+        anpr = EdgelessANPR(algo, input_dir, args.morphology, minAR=minAR_, maxAR=maxAR_, debug=bool(args.debug), save=bool(args.save))
+    else:
+        print('Invalid algorithm choice')
+        sys.exit()
 
     cap = cv2.VideoCapture(rtsp_url,cv2.CAP_FFMPEG)
     if not cap.isOpened():
@@ -163,10 +198,11 @@ def main():
         return
 
     print("[INFO] Iniciando procesamiento del stream...")
-    cv2.namedWindow("Stream", cv2.WINDOW_NORMAL)
-    #cv2.resizeWindow("Stream", 800, 600)
+    if args.display:
+        cv2.namedWindow("Stream", cv2.WINDOW_NORMAL)
+        #cv2.resizeWindow("Stream", 800, 600)
 
-    frame_queue = Queue(maxsize=5)  # No saturar la memoria si se atrasa el worker
+    frame_queue = Queue(maxsize=10)  # No saturar la memoria si se atrasa el worker
 
     # Lanza el proceso para procesar frames
     worker = Process(target=frame_worker, args=(
@@ -239,8 +275,11 @@ def main():
         cv2.destroyAllWindows()
     print("[INFO] Stream finalizado.")
 
+
+logger = UptimeLoggerAdapter(logging.getLogger(__name__), {})
+
 if __name__ == "__main__":
-    logger = UptimeLoggerAdapter(logging.getLogger(__name__), {})
+    
     main()
 
 
