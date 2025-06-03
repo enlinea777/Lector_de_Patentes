@@ -6,11 +6,15 @@ import os
 from anprclass import CannyANPR, EdgelessANPR, SobelANPR
 import logging
 from datetime import datetime
-import keyboard
+#import keyboard
 import sys
 import time
 import re
 from dotenv import load_dotenv
+from skimage.metrics import structural_similarity as ssim
+
+
+
 
 load_dotenv()
 
@@ -83,7 +87,6 @@ def frame_worker(queue, anpr, psm, clear_border, debug, save, estado_patente):
         except Exception as e:
             print(f"Error en procesar el frame {iteration}: {e}")
             # Imprimir toda las data
-            traceback.print_exc()
             # Imprimir el estado actual del proceso
             print("Estado actual del proceso:", estado_patente)
             # Imprimir el frame que falló
@@ -125,9 +128,9 @@ def parse_arguments():
 def process_frame(frame, iteration, anpr, psm, clear_border, debug, save, estado_patente):
 
     # Chequeamos si se presionó ESC
-    if keyboard.is_pressed('esc'):
-        print("ESC presionado. Saliendo del programa.")
-        matar_proceso()
+    #if keyboard.is_pressed('esc'):
+    #    print("ESC presionado. Saliendo del programa.")
+    #    matar_proceso()
     if args.CalidadProces == False:
         image = imutils.resize(frame, width=400)
     else:
@@ -135,8 +138,8 @@ def process_frame(frame, iteration, anpr, psm, clear_border, debug, save, estado
 
     image = cv2.bilateralFilter(image, 3, 105, 105)
 
-    if debug:
-        anpr.debug_imshow("Filtro Bilateral", image,waitKey=False )
+    #if debug:
+        #anpr.debug_imshow("Filtro Bilateral", image,waitKey=False )
 
     lp_text, lp_cnt = anpr.find_and_ocr(iteration, image, psm=psm, clearBorder=clear_border)
 
@@ -158,8 +161,10 @@ def process_frame(frame, iteration, anpr, psm, clear_border, debug, save, estado
             logger.info(f"Patente detectada: {lp_text}")
             estado_patente['ultima'] = lp_text
 
-        #_if debug:
-        #_    anpr.debug_imshow("Resultado ANPR", image, waitKey=True)
+            if debug:
+                anpr.debug_imshow("Patente prev", anpr.LP_cap)
+                print(anpr.LP_cap_balance)
+                anpr.debug_imshow("Resultado ANPR", anpr.LP)
 
         if save:
             anpr.save_result(f"FrameDetectado_LP-{lp_text}_{iteration}.jpg", image)
@@ -178,8 +183,10 @@ def main():
     rtsp_url = args.rtsp
     input_dir = "rtsp_live/"
     iteration = 0
-    minAR_=7
+    minAR_=2.5
     maxAR_=minAR_*2
+    last_frame = None
+
 
     algo = args.algorithm
     if algo == 1:
@@ -202,7 +209,7 @@ def main():
         cv2.namedWindow("Stream", cv2.WINDOW_NORMAL)
         #cv2.resizeWindow("Stream", 800, 600)
 
-    frame_queue = Queue(maxsize=10)  # No saturar la memoria si se atrasa el worker
+    frame_queue = Queue(maxsize=3)  # No saturar la memoria si se atrasa el worker
 
     # Lanza el proceso para procesar frames
     worker = Process(target=frame_worker, args=(
@@ -215,9 +222,9 @@ def main():
     while True:
 
         # Chequeamos si se presionó ESC
-        if keyboard.is_pressed('esc'):
-            print("ESC presionado. Saliendo del programa.")
-            matar_proceso()
+        #if keyboard.is_pressed('esc'):
+        #    print("ESC presionado. Saliendo del programa.")
+        #    matar_proceso()
 
         if cap is None or not cap.isOpened():
             print("[WARN] Stream no disponible. Reintentando en 2 segundos...")
@@ -234,7 +241,6 @@ def main():
             cap.release()
             cap = None
             continue
-
 
         #Colocamos un fultro para evitar falsos positivos con la hora del reloj
         
@@ -255,6 +261,33 @@ def main():
             cv2.imshow("Stream", frame)
             if cv2.waitKey(1) == 27:  # ESC para salir
                 break
+
+        
+        # Redimensionar para acelerar el cálculo y estandarizar
+        resized = cv2.resize(frame, (320, 240))
+        gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+
+        
+
+        
+        if args.CalidadProces == False:
+            #rango de 80% para cambios en frames de baja calidad
+            Rango = 0.8 
+        else:
+            #bajar el rango si se esta probando alta calidad
+            Rango = 0.68 
+
+        if last_frame is not None:
+            score, _ = ssim(last_frame, gray, full=True)
+            print(f"Frame  ({score:.2f}). ")
+            if score > 0.8:
+                #print(f"[WARN] Frame similar al anterior ({score:.2f}). ")
+#                time.sleep(2)
+                continue
+        # Guardar para la siguiente comparación
+        last_frame = gray
+
+
 
         iteration += 1
         #result_img = 

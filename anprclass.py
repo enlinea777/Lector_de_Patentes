@@ -18,16 +18,21 @@ class SobelANPR:
         self.algo = algo
         self.input_dir = input_dir
         self.morph = morph
+        self.LP = None
+        self.LP_cap = None
+        self.LP_cap_balance = None
 
     def debug_imshow(self, title, image, waitKey=False):    #If debug argument (-d) is set to 1, the script will show the whole image processing pipeline
         waitKey=False
-        if self.debug:
-            cv2.namedWindow(title, cv2.WINDOW_NORMAL)
-            #cv2.resizeWindow("Stream", 800, 600)                                      #and wait for user input before continuing to the next step.
-            cv2.imshow(title, image)
-        #if waitKey:
-              #  cv2.waitKey(0)
-            cv2.waitKey(1)
+
+        if image is not None and image.size != 0:
+            if self.debug:
+                cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+                #cv2.resizeWindow("Stream", 800, 600)                                      #and wait for user input before continuing to the next step.
+                cv2.imshow(title, image)
+            #if waitKey:
+                #  cv2.waitKey(0)
+                cv2.waitKey(1)
 
     def save_result(self, name, image):                     #This function is used to save the final image which contains the ROI
         try:                                                #in a folder and also the image of the extracted ROI.
@@ -136,19 +141,23 @@ class SobelANPR:
                 white_ratio = white_pixels / total_pixels
 
                 #if self.debug:
-                print(f"[INFO] AR: {ar:.2f}, % Blanco: {white_ratio:.2%}")
+                #print(f"[INFO] AR: {ar:.2f}, % Blanco: {white_ratio:.2%}")
 
-                if white_ratio < white_threshold:
+                #if white_ratio < white_threshold:
                     #if self.debug:
-                    print("[INFO] ROI descartado por bajo contenido blanco")
-                    continue  # salta a la siguiente región candidata
+                    #print("[INFO] ROI descartado por bajo contenido blanco")
+                    #continue  # salta a la siguiente región candidata
 
 
                 if clearBorder:
                     roi = clear_border(roi)
+                if self.debug:
+                    self.LP_cap=licensePlate.copy()
 
-                self.debug_imshow("License Plate", licensePlate, waitKey=True)
-                self.debug_imshow("ROI", roi, waitKey=True)
+                #self.debug_imshow("License Plate", licensePlate, waitKey=True)
+                #print(f"[INFO] AR: {ar:.2f}, % Blanco: {white_ratio:.2%}")
+                self.LP_cap_balance= "[INFO] AR: {ar:.2f}, % Blanco: {white_ratio:.2%}"
+                #self.debug_imshow("ROI", roi, waitKey=True)
 
 
 #                self.save_result('roi{}.png'.format(iteration), licensePlate)
@@ -160,6 +169,7 @@ class SobelANPR:
         alphanumeric = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         options = "-c tessedit_char_whitelist={}".format(alphanumeric)
         options += " --psm {}".format(psm)
+        options += " -l spa"
         return options
 
     def find_and_ocr(self, iteration, image, psm=7, clearBorder=False):
@@ -170,10 +180,17 @@ class SobelANPR:
         candidates = self.locate_license_plate_candidates(gray, image, 5)
         (lp, lpCnt) = self.locate_license_plate(iteration, gray, candidates, clearBorder=clearBorder)
 
-        if lp is not None:
+        if lp is not None and lp.size != 0:
             options = self.build_tesseract_options(psm=psm)
-            lpText = pytesseract.image_to_string(lp, config=options)
-            self.debug_imshow("License Plate Reconocido", lp, waitKey=True)
+            try:
+                self.debug_imshow("test Tesseract ", lp)
+                lpText = pytesseract.image_to_string(lp, config=options)
+                self.LP=lp.copy()
+            except pytesseract.TesseractError as e:
+                print(f"Error de Tesseract: {e}")
+                lpText = ""
+
+            #self.debug_imshow("License Plate Reconocido", lp, waitKey=True)
 
         return (lpText, lpCnt)
 
