@@ -1,0 +1,14 @@
+version: '3.5'
+services:
+
+  lector_patentes:
+    container_name: lector_patentes
+    build:
+      context: .
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true
+#    command: apache2ctl -D FOREGROUND
+    volumes:
+      - './.env:/.env'
+ 
