@@ -114,7 +114,8 @@ class SobelANPR:
         oriCopy = image.copy()
         for c in cnts:
             cv2.drawContours(oriCopy, [c], -1, 255, 2)
-            self.debug_imshow("Contours", oriCopy)
+            #self.debug_imshow("Contours", oriCopy)
+            self.debug_imshow("Deteccion", oriCopy)
 
         
 

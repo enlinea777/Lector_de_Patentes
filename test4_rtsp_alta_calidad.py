@@ -18,7 +18,6 @@ from skimage.metrics import structural_similarity as ssim
 
 load_dotenv()
 
-
 rtsp_url = os.getenv('url_rstp')
 
 from multiprocessing import set_start_method
@@ -181,8 +180,9 @@ def main():
     
     estado_patente = {'ultima': None}
     rtsp_url = args.rtsp
-    input_dir = "rtsp_live/"
+    input_dir = "capturas/"
     iteration = 0
+    iteration_futura = 0
     minAR_=2.5
     maxAR_=minAR_*2
     last_frame = None
@@ -209,7 +209,7 @@ def main():
         cv2.namedWindow("Stream", cv2.WINDOW_NORMAL)
         #cv2.resizeWindow("Stream", 800, 600)
 
-    frame_queue = Queue(maxsize=3)  # No saturar la memoria si se atrasa el worker
+    frame_queue = Queue(maxsize=30)  # No saturar la memoria si se atrasa el worker
 
     # Lanza el proceso para procesar frames
     worker = Process(target=frame_worker, args=(
@@ -263,29 +263,44 @@ def main():
                 break
 
         
-        # Redimensionar para acelerar el cálculo y estandarizar
-        resized = cv2.resize(frame, (320, 240))
-        gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
 
-        
+        if args.debug:
+            print(f"[iteration] ({iteration:.2f}). ")
+            print(f"[iteration_futura] ({iteration_futura:.2f}). ")
 
-        
-        if args.CalidadProces == False:
-            #rango de 80% para cambios en frames de baja calidad
-            Rango = 0.8 
-        else:
-            #bajar el rango si se esta probando alta calidad
-            Rango = 0.68 
+        if(iteration_futura<iteration):
+            # Redimensionar para acelerar el cálculo y estandarizar
+            # Redimensionar para acelerar el cálculo y estandarizar
+            resized = cv2.resize(frame, (320, 240))
+            gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+            
+            
 
-        if last_frame is not None:
-            score, _ = ssim(last_frame, gray, full=True)
-            print(f"Frame  ({score:.2f}). ")
-            if score > 0.8:
-                #print(f"[WARN] Frame similar al anterior ({score:.2f}). ")
-#                time.sleep(2)
-                continue
-        # Guardar para la siguiente comparación
-        last_frame = gray
+            if args.CalidadProces == False:
+                #rango de 80% para cambios en frames de baja calidad
+                Rango = 0.8 
+            else:
+                #bajar el rango si se esta probando alta calidad
+                Rango = 0.7 
+
+
+            
+                if last_frame is not None:
+                    score, _ = ssim(last_frame, gray, full=True)
+                    
+                    if args.debug:
+                        print(f"Igualdad  ({score:.2f}). ")
+                    if score > Rango :
+                        #print(f"[WARN] Frame similar al anterior ({score:.2f}). ")
+        #                time.sleep(2)
+                        last_frame = gray
+                        continue
+                    if score > 0.4:
+                        iteration_futura=iteration+160
+                    
+                        
+                        # Guardar para la siguiente comparación
+            last_frame = gray
 
 
 
